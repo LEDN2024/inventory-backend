@@ -3,22 +3,26 @@ const { sendEmail } = require('./emailUtils');
 
 const checkAlerts = async () => {
   try {
-    const alerts = await db.query("SELECT * FROM alert_preferences");
+    const alertsResult = await db.query("SELECT * FROM alert_preferences");
 
-    for (const alert of alerts.rows) {
-      const countRes = await db.query(
-        "SELECT COUNT(*) FROM inventory_items WHERE store_name = $1 AND item_type = $2 AND status != 'used'",
-        [alert.store_name, alert.item_type]
+    for (const alert of alertsResult.rows) {
+      const { store_name, item_type, threshold, alerted, manager_email, id } = alert;
+
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM inventory_items 
+         WHERE store_name = $1 AND item_type = $2 AND status != 'used'`,
+        [store_name, item_type]
       );
-      const currentCount = parseInt(countRes.rows[0].count, 10);
 
-      if (currentCount < alert.threshold && !alert.alerted) {
-        await sendEmail(alert.manager_email, alert.item_type, alert.store_name, currentCount);
-        await db.query("UPDATE alert_preferences SET alerted = true WHERE id = $1", [alert.id]);
+      const currentCount = parseInt(countResult.rows[0].count, 10);
+
+      if (currentCount < threshold && !alerted) {
+        await sendEmail(manager_email, item_type, store_name, currentCount);
+        await db.query("UPDATE alert_preferences SET alerted = true WHERE id = $1", [id]);
       }
 
-      if (currentCount >= alert.threshold && alert.alerted) {
-        await db.query("UPDATE alert_preferences SET alerted = false WHERE id = $1", [alert.id]);
+      if (currentCount >= threshold && alerted) {
+        await db.query("UPDATE alert_preferences SET alerted = false WHERE id = $1", [id]);
       }
     }
   } catch (err) {

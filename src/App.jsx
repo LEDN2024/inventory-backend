@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
 function App() {
   const [form, setForm] = useState({
     qr_code_id: '',
@@ -11,6 +13,7 @@ function App() {
   });
 
   const [response, setResponse] = useState(null);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -18,14 +21,25 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch('http://localhost:3000/inventory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
+    setError('');
+    setResponse(null);
 
-    const data = await res.json();
-    setResponse(data);
+    try {
+      const res = await fetch(`${API_BASE}/inventory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Submission failed');
+      }
+
+      setResponse(data);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -34,24 +48,28 @@ function App() {
       <form onSubmit={handleSubmit}>
         {Object.keys(form).map((key) => (
           <div key={key} style={{ marginBottom: '1rem' }}>
-            <label>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}>
               {key.replace('_', ' ')}:
-              <input
-                type={key.includes('date') ? 'date' : 'text'}
-                name={key}
-                value={form[key]}
-                onChange={handleChange}
-                required
-                style={{ width: '100%' }}
-              />
             </label>
+            <input
+              type={key.includes('date') ? 'date' : 'text'}
+              name={key}
+              value={form[key]}
+              onChange={handleChange}
+              required
+              style={{ width: '100%', padding: '0.5rem' }}
+            />
           </div>
         ))}
-        <button type="submit">Add Item</button>
+        <button type="submit" style={{ padding: '0.5rem 1rem' }}>Add Item</button>
       </form>
 
+      {error && (
+        <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>
+      )}
+
       {response && (
-        <pre style={{ background: '#f5f5f5', padding: '1rem' }}>
+        <pre style={{ background: '#f5f5f5', padding: '1rem', marginTop: '1rem' }}>
           {JSON.stringify(response, null, 2)}
         </pre>
       )}

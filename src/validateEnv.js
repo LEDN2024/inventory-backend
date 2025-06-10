@@ -10,8 +10,10 @@ const requiredVars = [
 const missingVars = requiredVars.filter((key) => !process.env[key]);
 
 if (missingVars.length > 0) {
-  console.error(`❌ Missing required environment variable(s): ${missingVars.join(', ')}`);
+  console.error('\n Environment Validation Failed!');
+  console.error(`Missing required environment variable(s):\n  - ${missingVars.join('\n  - ')}`);
+  console.error('\n Make sure your .env file is properly loaded and the variables are defined.\n');
   process.exit(1);
 }
 
-console.log('✅ All required environment variables are set.');
+console.log('All required environment variables are set.');

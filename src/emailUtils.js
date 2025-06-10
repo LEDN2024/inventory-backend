@@ -14,10 +14,15 @@ async function sendEmail(to, itemType, storeName, currentCount) {
     from: process.env.EMAIL_USER,
     to,
     subject: `Low Inventory Alert for ${itemType}`,
-    text: `Current stock for "${itemType}" at "${storeName}" has fallen below your set threshold. Current stock: ${currentCount}.`,
+    text: `Alert:\n\n"${itemType}" at "${storeName}" is below threshold.\nCurrent stock: ${currentCount}.`,
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Alert email sent to ${to}`);
+  } catch (err) {
+    console.error(`Failed to send alert email to ${to}:`, err);
+  }
 }
 
 async function sendResetEmail(to, token) {
@@ -26,10 +31,15 @@ async function sendResetEmail(to, token) {
     from: process.env.EMAIL_USER,
     to,
     subject: "Reset your ScoopBase password",
-    text: `You've requested to reset your password. Click the link below:\n\n${resetUrl}\n\nIf you didn’t request this, ignore this message.`,
+    text: `You've requested to reset your password.\n\nReset link:\n${resetUrl}\n\nIf this wasn't you, you can ignore this message.`,
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${to}`);
+  } catch (err) {
+    console.error(`Failed to send reset email to ${to}:`, err);
+  }
 }
 
 module.exports = { sendEmail, sendResetEmail };
