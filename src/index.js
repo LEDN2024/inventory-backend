@@ -21,17 +21,24 @@ cron.schedule("*/10 * * * *", () => {
 
 // Middleware
 
-const corsOptions = {
-  origin: process.env.FRONTEND_BASE_URL,
-  methods: "GET,POST,PATCH,DELETE",
-  credentials: true,
-};
+const allowedOrigins = [
+  'https://inventory-frontend-vhsk.onrender.com',
+  'http://localhost:5173'
+];
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-  methods: ["GET", "POST", "PATCH", "DELETE"],
+  origin: function (origin, callback) {
+    // Allow requests with no origin
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: "GET,POST,PATCH,DELETE",
   credentials: true,
 }));
+
 app.use(express.json());
 
 // ========== AUTH ROUTES ==========
