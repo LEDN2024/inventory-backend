@@ -24,7 +24,13 @@ cron.schedule("*/10 * * * *", () => {
 });
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: "https://inventory-frontend-vhsk.onrender.com",
+  methods: "GET,POST,PATCH,DELETE",
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Password reset (send reset email)
