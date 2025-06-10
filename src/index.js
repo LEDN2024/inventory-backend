@@ -28,8 +28,8 @@ const corsOptions = {
 };
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  methods: "GET,POST,PATCH,DELETE",
+  origin: process.env.CORS_ORIGIN,
+  methods: ["GET", "POST", "PATCH", "DELETE"],
   credentials: true,
 }));
 app.use(express.json());
