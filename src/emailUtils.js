@@ -21,7 +21,7 @@ async function sendEmail(to, itemType, storeName, currentCount) {
 }
 
 async function sendResetEmail(to, token) {
-  const resetUrl = `http://localhost:5173/reset-password?token=${token}`; // Update if hosted
+  const resetUrl = `${process.env.FRONTEND_BASE_URL}/reset-password?token=${token}`;
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
@@ -32,5 +32,4 @@ async function sendResetEmail(to, token) {
   await transporter.sendMail(mailOptions);
 }
 
-module.exports = { sendEmail };
 module.exports = { sendEmail, sendResetEmail };

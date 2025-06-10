@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+require('./validateEnv');
+
 const pool = require('./db');
 const { checkAlerts } = require("./alertChecker");
 const alertsRouter = require("./alerts.js");
@@ -21,6 +23,10 @@ cron.schedule("*/10 * * * *", () => {
   checkAlerts().catch(console.error);
 });
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+
 // Password reset (send reset email)
 app.post("/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -29,11 +35,11 @@ app.post("/auth/forgot-password", async (req, res) => {
   try {
     const result = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
     if (result.rows.length === 0) {
-      return res.status(200).json({ message: "If the email exists, a reset link will be sent." }); // Always vague
+      return res.status(200).json({ message: "If the email exists, a reset link will be sent." });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await pool.query(
       "UPDATE users SET reset_token = $1, reset_token_expires_at = $2 WHERE email = $3",
@@ -48,7 +54,7 @@ app.post("/auth/forgot-password", async (req, res) => {
   }
 });
 
-// reset password after clicking link
+// Reset password
 app.post("/auth/reset-password", async (req, res) => {
   const { token, new_password } = req.body;
   if (!token || !new_password) {
@@ -81,9 +87,6 @@ app.post("/auth/reset-password", async (req, res) => {
   }
 });
 
-app.use(cors());
-app.use(express.json());
-
 // Register alert routes
 app.use("/alerts", alertsRouter);
 
@@ -113,30 +116,18 @@ app.get("/test-db", async (req, res) => {
 
 app.post("/inventory", async (req, res) => {
   const {
-    qr_id,
-    qr_code_id,
-    item_type,
-    delivery_number,
-    delivery_date,
-    storage_location,
-    store_name
+    qr_id, qr_code_id, item_type, delivery_number,
+    delivery_date, storage_location, store_name
   } = req.body;
 
   try {
     const result = await pool.query(
       `INSERT INTO inventory_items (
-        qr_id,
-        qr_code_id,
-        item_type,
-        delivery_number,
-        delivery_date,
-        storage_location,
-        store_name
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *`,
+        qr_id, qr_code_id, item_type, delivery_number,
+        delivery_date, storage_location, store_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [qr_id, qr_code_id, item_type, delivery_number, delivery_date, storage_location, store_name]
     );
-
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Insert error:", err);
@@ -151,11 +142,7 @@ app.get("/inventory/:id", async (req, res) => {
       `SELECT * FROM inventory_items WHERE qr_code_id = $1`,
       [qr_code_id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Item not found" });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ error: "Item not found" });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Lookup error:", err);
@@ -165,34 +152,27 @@ app.get("/inventory/:id", async (req, res) => {
 
 app.get("/profitability", async (req, res) => {
   const { store_name, start_date, end_date } = req.query;
-  
-  if (!start_date || !end_date) {
-    return res.status(400).json({ error: "start_date and end_date are required" });
-  }
+  if (!start_date || !end_date) return res.status(400).json({ error: "start_date and end_date are required" });
 
   try {
-  let query = `
-    SELECT SUM(it.price) AS total_cogs
-    FROM inventory_items i
-    JOIN item_types it ON i.item_type = it.name
-    WHERE i.status = 'used'
-      AND i.used_at BETWEEN $1 AND $2
-  `;
-  const values = [start_date, end_date];
+    let query = `
+      SELECT SUM(it.price) AS total_cogs
+      FROM inventory_items i
+      JOIN item_types it ON i.item_type = it.name
+      WHERE i.status = 'used' AND i.used_at BETWEEN $1 AND $2`;
+    const values = [start_date, end_date];
+    if (store_name && store_name !== "All") {
+      query += " AND i.store_name = $3";
+      values.push(store_name);
+    }
 
-  if (store_name && store_name !== "All") {
-    query += " AND i.store_name = $3";
-    values.push(store_name);
+    const result = await pool.query(query, values);
+    const total_cogs = parseFloat(result.rows[0].total_cogs) || 0;
+    res.json({ total_cogs });
+  } catch (err) {
+    console.error("Profitability error:", err);
+    res.status(500).send("Server error");
   }
-
-  const result = await pool.query(query, values);
-  const total_cogs = parseFloat(result.rows[0].total_cogs) || 0;
-  res.json({ total_cogs });
-} catch (err) {
-  console.error("Profitability calculation error:", err);
-  res.status(500).send("Server error");
-}
-
 });
 
 app.patch("/inventory/:qr_code_id", async (req, res) => {
@@ -205,29 +185,22 @@ app.patch("/inventory/:qr_code_id", async (req, res) => {
 
   try {
     let query, values;
-
     if (status === "used") {
       query = `
         UPDATE inventory_items
         SET status = $1, used_at = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP
-        WHERE qr_code_id = $2
-        RETURNING *`;
+        WHERE qr_code_id = $2 RETURNING *`;
       values = [status, qr_code_id];
     } else {
       query = `
         UPDATE inventory_items
         SET status = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE qr_code_id = $2
-        RETURNING *`;
+        WHERE qr_code_id = $2 RETURNING *`;
       values = [status, qr_code_id];
     }
 
     const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Item not found" });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ error: "Item not found" });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Update error:", err);
@@ -235,6 +208,7 @@ app.patch("/inventory/:qr_code_id", async (req, res) => {
   }
 });
 
+// Alerts
 app.get('/alerts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM alert_preferences ORDER BY store_name, item_type');
@@ -247,7 +221,6 @@ app.get('/alerts', async (req, res) => {
 
 app.post('/alerts', async (req, res) => {
   const { manager_email, item_type, store_name, threshold } = req.body;
-
   if (!manager_email || !item_type || !store_name || isNaN(threshold)) {
     return res.status(400).json({ error: "Missing required fields" });
   }
@@ -288,60 +261,11 @@ app.patch("/inventory/:qr_code_id/price", async (req, res) => {
       "UPDATE inventory_items SET price = $1 WHERE qr_code_id = $2 RETURNING *",
       [price, qr_code_id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Item not found" });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ error: "Item not found" });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Price update error:", err);
     res.status(500).send("Server error updating price");
-  }
-});
-
-app.get("/inventory", async (req, res) => {
-  const { store_name, item_type, status, delivery_number, delivery_date } = req.query;
-
-  const filters = [];
-  const values = [];
-
-  if (store_name) {
-    values.push(store_name);
-    filters.push(`store_name = $${values.length}`);
-  }
-
-  if (item_type) {
-    values.push(item_type);
-    filters.push(`item_type = $${values.length}`);
-  }
-
-  if (status) {
-    values.push(status);
-    filters.push(`status = $${values.length}`);
-  }
-
-  if (delivery_number) {
-    values.push(delivery_number);
-    filters.push(`delivery_number = $${values.length}`);
-  }
-
-  if (delivery_date) {
-    values.push(delivery_date);
-    filters.push(`CAST(delivery_date AS DATE) = $${values.length}`);
-  }
-
-  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
-
-  try {
-    const result = await pool.query(
-      `SELECT * FROM inventory_items ${whereClause} ORDER BY created_at DESC`,
-      values
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Fetch error:", err);
-    res.status(500).send("Error fetching items");
   }
 });
 
@@ -413,21 +337,16 @@ app.delete("/items/:name", async (req, res) => {
   }
 });
 
-// Account system
+// Auth routes
 const MANAGER_REG_CODE = process.env.MANAGER_REG_CODE;
 
 app.post("/auth/register", async (req, res) => {
   const { email, password, manager_code } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required." });
-  }
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required." });
 
   try {
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: "Email already registered." });
-    }
+    if (existing.rows.length > 0) return res.status(409).json({ error: "Email already registered." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const role = manager_code === MANAGER_REG_CODE ? "manager" : "scooper";
@@ -436,7 +355,6 @@ app.post("/auth/register", async (req, res) => {
       `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role`,
       [email, hashedPassword, role]
     );
-
     res.status(201).json({ message: "User registered successfully", user: result.rows[0] });
   } catch (err) {
     console.error("Registration error:", err);
@@ -449,17 +367,18 @@ app.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: "Email not found" });
-    }
+    if (result.rows.length === 0) return res.status(400).json({ error: "Email not found" });
 
     const user = result.rows[0];
-    const isValid = await bcrypt.compare(password, user.password_hash);
 
-    if (!isValid) {
-      return res.status(401).json({ error: "Invalid password" });
-    }
+    console.log("Incoming email:", email);
+    console.log("Incoming password:", password);
+    console.log("Stored hash:", user.password_hash);
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    console.log("Password valid?", isValid);
+
+    if (!isValid) return res.status(401).json({ error: "Invalid password" });
 
     const token = jwt.sign({ email: user.email, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: "2h",
@@ -490,9 +409,7 @@ function authenticateManager(req, res, next) {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "manager") {
-      return res.status(403).json({ error: "Access denied: not a manager" });
-    }
+    if (decoded.role !== "manager") return res.status(403).json({ error: "Access denied: not a manager" });
     req.user = decoded;
     next();
   } catch (err) {
@@ -500,7 +417,7 @@ function authenticateManager(req, res, next) {
   }
 }
 
-// Role update endpoint
+// Role update
 app.patch("/users/:id/role", authenticateManager, async (req, res) => {
   const userId = req.params.id;
   const { role } = req.body;
@@ -514,10 +431,7 @@ app.patch("/users/:id/role", authenticateManager, async (req, res) => {
       `UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, role`,
       [role, userId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
 
     res.json({ message: "User role updated", user: result.rows[0] });
   } catch (err) {
