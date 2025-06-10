@@ -20,6 +20,13 @@ cron.schedule("*/10 * * * *", () => {
 });
 
 // Middleware
+
+const corsOptions = {
+  origin: process.env.FRONTEND_BASE_URL,
+  methods: "GET,POST,PATCH,DELETE",
+  credentials: true,
+};
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || "http://localhost:5173",
   methods: "GET,POST,PATCH,DELETE",
