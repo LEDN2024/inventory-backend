@@ -201,13 +201,21 @@ app.post("/inventory", async (req, res) => {
 
   const random_id = Math.random().toString(36).substring(2, 10);
 
-const result = await pool.query(
-  `INSERT INTO inventory_items (
-    qr_id, qr_code_id, item_type, delivery_number,
-    delivery_date, storage_location, store_name
-  ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-  [random_id, random_id, item_type, delivery_number, delivery_date, storage_location, store_name]
-);
+  try {
+    const result = await pool.query(
+      `INSERT INTO inventory_items (
+        qr_id, qr_code_id, item_type, delivery_number,
+        delivery_date, storage_location, store_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [random_id, random_id, item_type, delivery_number, delivery_date, storage_location, store_name]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Insert error:", err);
+    res.status(500).json({ error: "Error saving item" });
+  }
+});
 
 app.get("/inventory/:id", async (req, res) => {
   const qr_code_id = decodeURIComponent(req.params.id);
