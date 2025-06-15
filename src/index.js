@@ -192,11 +192,14 @@ app.patch("/users/:id/role", authenticateManager, async (req, res) => {
 
 app.post("/inventory", async (req, res) => {
   const {
-    item_type, delivery_number,
-    delivery_date, storage_location, store_name
+    item_type,
+    delivery_number,
+    delivery_date,
+    storage_location,
+    store_name
   } = req.body;
 
-  const qr_code_id = crypto.randomBytes(4).toString("hex");
+  const random_id = Math.random().toString(36).substring(2, 10); // 8-char string
 
   try {
     const result = await pool.query(
@@ -204,11 +207,11 @@ app.post("/inventory", async (req, res) => {
         qr_code_id, item_type, delivery_number,
         delivery_date, storage_location, store_name
       ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [qr_code_id, item_type, delivery_number, delivery_date, storage_location, store_name]
+      [random_id, item_type, delivery_number, delivery_date, storage_location, store_name]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Insert error:", err);
+    console.error("Insert error:", err); // check this in backend logs!
     res.status(500).json({ error: "Error saving item" });
   }
 });
