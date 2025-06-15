@@ -267,11 +267,13 @@ app.get("/inventory", async (req, res) => {
   const query = `SELECT * FROM inventory_items ${whereClause} ORDER BY created_at DESC`;
 
   try {
+    console.log("Query:", query);
+    console.log("Values:", values);
     const result = await pool.query(query, values);
     res.json(result.rows);
   } catch (err) {
-    console.error("Fetch inventory error:", err);
-    res.status(500).json({ error: "Error retrieving inventory items" });
+    console.error("Fetch inventory error:", err.message);  // <-- capture the message
+    res.status(500).json({ error: err.message });          // <-- send it to frontend for visibility
   }
 });
 

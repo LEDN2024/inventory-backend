@@ -3,14 +3,13 @@ import { useState } from 'react';
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 function App() {
-  const [form, setForm] = useState({
-    qr_code_id: '',
-    item_type: '',
-    delivery_number: '',
-    delivery_date: '',
-    storage_location: '',
-    store_name: '',
-  });
+ const [form, setForm] = useState({
+  item_type: '',
+  delivery_number: '',
+  delivery_date: '',
+  storage_location: '',
+  store_name: '',
+});
 
   const [response, setResponse] = useState(null);
   const [error, setError] = useState('');
