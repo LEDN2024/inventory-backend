@@ -199,27 +199,20 @@ app.post("/inventory", async (req, res) => {
     store_name
   } = req.body;
 
-  const random_id = Math.random().toString(36).substring(2, 10); // 8-char string
+  const random_id = Math.random().toString(36).substring(2, 10);
 
-  try {
-    const result = await pool.query(
-      `INSERT INTO inventory_items (
-        qr_code_id, item_type, delivery_number,
-        delivery_date, storage_location, store_name
-      ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [random_id, item_type, delivery_number, delivery_date, storage_location, store_name]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error("Insert error:", err); // check this in backend logs!
-    res.status(500).json({ error: "Error saving item" });
-  }
-});
+const result = await pool.query(
+  `INSERT INTO inventory_items (
+    qr_id, qr_code_id, item_type, delivery_number,
+    delivery_date, storage_location, store_name
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+  [random_id, random_id, item_type, delivery_number, delivery_date, storage_location, store_name]
+);
 
 app.get("/inventory/:id", async (req, res) => {
-  const qr_id = decodeURIComponent(req.params.id);
+  const qr_code_id = decodeURIComponent(req.params.id);
   try {
-    const result = await pool.query("SELECT * FROM inventory_items WHERE qr_id = $1", [qr_id]);
+    const result = await pool.query("SELECT * FROM inventory_items WHERE qr_code_id = $1", [qr_code_id]);
     if (result.rows.length === 0) return res.status(404).json({ error: "Item not found" });
     res.json(result.rows[0]);
   } catch (err) {
