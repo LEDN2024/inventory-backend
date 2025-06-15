@@ -190,6 +190,7 @@ app.patch("/users/:id/role", authenticateManager, async (req, res) => {
 
 // ========== INVENTORY ROUTES ==========
 
+// I've never had more fetching problems with one route than with this stupid inventory block
 app.post("/inventory", async (req, res) => {
   const {
     item_type,
