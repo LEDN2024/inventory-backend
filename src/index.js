@@ -20,7 +20,6 @@ cron.schedule("*/10 * * * *", () => {
 });
 
 // Middleware
-
 const allowedOrigins = [
   'https://inventory-frontend-vhsk.onrender.com',
   'http://localhost:5173'
@@ -28,7 +27,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -194,17 +192,19 @@ app.patch("/users/:id/role", authenticateManager, async (req, res) => {
 
 app.post("/inventory", async (req, res) => {
   const {
-    qr_id, qr_code_id, item_type, delivery_number,
+    item_type, delivery_number,
     delivery_date, storage_location, store_name
   } = req.body;
+
+  const qr_code_id = crypto.randomBytes(4).toString("hex");
 
   try {
     const result = await pool.query(
       `INSERT INTO inventory_items (
-        qr_id, qr_code_id, item_type, delivery_number,
+        qr_code_id, item_type, delivery_number,
         delivery_date, storage_location, store_name
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [qr_id, qr_code_id, item_type, delivery_number, delivery_date, storage_location, store_name]
+      ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [qr_code_id, item_type, delivery_number, delivery_date, storage_location, store_name]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -365,7 +365,7 @@ app.delete("/items/:name", async (req, res) => {
   }
 });
 
-// ========== ALERTS ROUTES ==========
+// ========== ALERTS ==========
 app.use("/alerts", alertsRouter);
 
 // ========== HEALTH ==========
