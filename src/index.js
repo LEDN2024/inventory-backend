@@ -217,14 +217,59 @@ app.post("/inventory", async (req, res) => {
 });
 
 app.get("/inventory/:id", async (req, res) => {
-  const qr_code_id = decodeURIComponent(req.params.id);
+  const qr_id = decodeURIComponent(req.params.id);
   try {
-    const result = await pool.query("SELECT * FROM inventory_items WHERE qr_code_id = $1", [qr_code_id]);
+    const result = await pool.query("SELECT * FROM inventory_items WHERE qr_id = $1", [qr_id]);
     if (result.rows.length === 0) return res.status(404).json({ error: "Item not found" });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Lookup error:", err);
     res.status(500).json({ error: "Error retrieving item" });
+  }
+});
+
+app.get("/inventory", async (req, res) => {
+  const {
+    store_name,
+    item_type,
+    status,
+    delivery_number,
+    delivery_date
+  } = req.query;
+
+  const filters = [];
+  const values = [];
+
+  if (store_name && store_name !== "All") {
+    values.push(store_name);
+    filters.push(`store_name = $${values.length}`);
+  }
+  if (item_type && item_type !== "All") {
+    values.push(item_type);
+    filters.push(`item_type = $${values.length}`);
+  }
+  if (status && status !== "All") {
+    values.push(status);
+    filters.push(`status = $${values.length}`);
+  }
+  if (delivery_number) {
+    values.push(delivery_number);
+    filters.push(`delivery_number = $${values.length}`);
+  }
+  if (delivery_date) {
+    values.push(delivery_date);
+    filters.push(`delivery_date = $${values.length}`);
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+  const query = `SELECT * FROM inventory_items ${whereClause} ORDER BY created_at DESC`;
+
+  try {
+    const result = await pool.query(query, values);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch inventory error:", err);
+    res.status(500).json({ error: "Error retrieving inventory items" });
   }
 });
 
